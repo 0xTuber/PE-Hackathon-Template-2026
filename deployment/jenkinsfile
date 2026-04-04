@@ -110,7 +110,7 @@ pipeline {
             sh 'export COMPOSE_PROJECT_NAME=hackathon-staging && docker compose down 2>/dev/null || true'
             discordSend(
                 webhookURL: "${DISCORD_WEBHOOK}",
-                title: '❌ Pipeline Failed',
+                title: 'Pipeline Failed',
                 description: "Build #${env.BUILD_NUMBER} failed on branch ${env.GIT_BRANCH}\nCheck logs: ${env.BUILD_URL}",
                 result: 'FAILURE',
                 footer: 'Jenkins CI/CD'
@@ -119,7 +119,7 @@ pipeline {
         success {
             discordSend(
                 webhookURL: "${DISCORD_WEBHOOK}",
-                title: '✅ Deployment Successful',
+                title: 'Deployment Successful',
                 description: "Build #${env.BUILD_NUMBER} deployed successfully to production\n${env.BUILD_URL}",
                 result: 'SUCCESS',
                 footer: 'Jenkins CI/CD'

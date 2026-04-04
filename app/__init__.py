@@ -6,15 +6,19 @@ import os
 import uuid
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, has_request_context
 
 from app.database import init_db
 from app.routes import register_routes
 
 class ContextFilter(logging.Filter):
     def filter(self, record):
-        # Automatically tag EVERY log with the current request trace and the specific Worker Container ID
-        record.correlation_id = getattr(g, 'request_id', 'system_event')
+        # Safely tag EVERY log with the current request trace if inside a request loop
+        if has_request_context():
+            record.correlation_id = getattr(g, 'request_id', 'system_event')
+        else:
+            record.correlation_id = 'system_boot'
+            
         record.replica_id = os.environ.get("HOSTNAME", "standalone")
         return True
 
