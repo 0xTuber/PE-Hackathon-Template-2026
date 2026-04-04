@@ -46,6 +46,9 @@ pipeline {
 
                     cd $DEPLOY_DIR
                     export PROXY_PORT=5001
+                    export PROMETHEUS_PORT=19090
+                    export GRAFANA_PORT=13000
+                    export ALERTMANAGER_PORT=19093
                     export COMPOSE_PROJECT_NAME=hackathon-staging
                     docker compose down 2>/dev/null || true
                     docker compose up -d --build
@@ -90,15 +93,24 @@ pipeline {
                     sudo systemctl stop nginx || true
                     sudo systemctl disable nginx || true
 
+                    # Stop staging first to free all ports
+                    cd $DEPLOY_DIR
+                    export PROXY_PORT=5001
+                    export PROMETHEUS_PORT=19090
+                    export GRAFANA_PORT=13000
+                    export ALERTMANAGER_PORT=19093
+                    export COMPOSE_PROJECT_NAME=hackathon-staging
+                    docker compose down 2>/dev/null || true
+
+                    # Start production on default ports
                     cd $DEPLOY_DIR
                     unset PROXY_PORT
+                    unset PROMETHEUS_PORT
+                    unset GRAFANA_PORT
+                    unset ALERTMANAGER_PORT
                     export COMPOSE_PROJECT_NAME=hackathon-prod
                     docker compose down 2>/dev/null || true
                     docker compose up -d
-
-                    export PROXY_PORT=5001
-                    export COMPOSE_PROJECT_NAME=hackathon-staging
-                    docker compose down 2>/dev/null || true
                 '''
             }
         }
