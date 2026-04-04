@@ -70,6 +70,9 @@ pipeline {
 
                     ln -sfn $DEPLOY_DIR $ACTIVE_LINK
 
+                    sudo systemctl stop hackathon || true
+                    sudo systemctl disable hackathon || true
+
                     cd $DEPLOY_DIR
                     export PROXY_PORT=5000
                     export COMPOSE_PROJECT_NAME=hackathon-prod
