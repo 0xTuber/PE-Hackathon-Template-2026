@@ -10,7 +10,12 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                sh 'uv sync'
+                sh '''
+                    if ! command -v docker &> /dev/null; then
+                        curl -fsSL https://get.docker.com | sh
+                    fi
+                    uv sync
+                '''
             }
         }
         stage('Test') {
@@ -31,7 +36,6 @@ pipeline {
                     rsync -av --exclude='.git' --exclude='.venv' . $DEPLOY_DIR
                     cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
-                    # Launch Staging Clone Army directly encapsulated on port 5001 seamlessly
                     cd $DEPLOY_DIR
                     export PROXY_PORT=5001
                     export COMPOSE_PROJECT_NAME=hackathon-staging
@@ -62,18 +66,15 @@ pipeline {
 
                     ln -sfn $DEPLOY_DIR $ACTIVE_LINK
 
-                    # Boot up the Live Production Horde cleanly routed directly at port 5000!
                     cd $DEPLOY_DIR
                     export PROXY_PORT=5000
                     export COMPOSE_PROJECT_NAME=hackathon-prod
                     docker compose down 2>/dev/null || true
                     docker compose up -d
 
-                    # Natively tear down the previous staging setup cleanly isolating RAM usages
                     export COMPOSE_PROJECT_NAME=hackathon-staging
                     docker compose down 2>/dev/null || true
 
-                    # Terminate the outdated Production Clone Army to zero-downtime seamlessly switch over!
                     cd $OLD_DIR || true
                     export COMPOSE_PROJECT_NAME=hackathon-prod
                     docker compose down 2>/dev/null || true
