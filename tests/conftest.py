@@ -1,3 +1,8 @@
+import os
+import tempfile
+
+os.environ["PROMETHEUS_MULTIPROC_DIR"] = tempfile.mkdtemp()
+
 import pytest
 from app import create_app
 from app.database import db
