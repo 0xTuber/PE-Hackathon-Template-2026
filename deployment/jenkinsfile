@@ -3,6 +3,7 @@ pipeline {
     environment {
         BLUE_DIR = '/var/www/hackathon-blue'
         GREEN_DIR = '/var/www/hackathon-green'
+        ACTIVE_LINK = '/var/www/hackathon'
         SERVICE_NAME = 'hackathon'
         PATH = "/root/.local/bin:${env.PATH}"
         DISCORD_WEBHOOK = credentials('discord-webhook')
