@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'uv run pytest tests/test_users.py tests/test_urls.py tests/test_events.py'
+                sh 'uv run pytest'
             }
         }
         stage('Deploy to Staging') {
