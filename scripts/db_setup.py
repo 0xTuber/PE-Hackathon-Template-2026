@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from app.database import db
 from app.models.user import User
 from app.models.url import URL
@@ -19,7 +22,7 @@ db.connect()
 db.create_tables([User, URL, Event], safe=True)
 db.close()
 
-def load_csv(filepath,model):
+def load_csv(filepath, model):
     with open(filepath, newline="") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
