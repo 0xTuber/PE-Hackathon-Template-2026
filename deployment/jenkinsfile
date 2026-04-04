@@ -84,11 +84,6 @@ pipeline {
             export PROXY_PORT=5001
             export COMPOSE_PROJECT_NAME=hackathon-staging
             docker compose down 2>/dev/null || true
-
-            cd $OLD_DIR || true
-            unset PROXY_PORT
-            export COMPOSE_PROJECT_NAME=hackathon-prod
-            docker compose down 2>/dev/null || true
         '''
     }
 }
