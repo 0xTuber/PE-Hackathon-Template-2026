@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'uv run pytest'
+                sh 'uv run pytest --cov=app --cov-fail-under=50'
             }
         }
         stage('Deploy to Staging') {

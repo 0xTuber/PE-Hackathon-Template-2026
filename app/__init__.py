@@ -23,4 +23,12 @@ def create_app(test_config=None):
     def health():
         return jsonify(status="ok")
 
+    @app.errorhandler(404)
+    def resource_not_found(e):
+        return jsonify(error="Resource not found", details=str(e)), 404
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        return jsonify(error="Internal server error", details=str(e)), 500
+
     return app
