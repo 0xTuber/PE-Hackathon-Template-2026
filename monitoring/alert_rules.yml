@@ -1,0 +1,83 @@
+groups:
+  - name: golden_signals
+    rules:
+      # ── LATENCY ──────────────────────────────────────────────
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[2m])) by (le)) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95th percentile latency is above 1 second for the last 2 minutes."
+
+      - alert: CriticalLatency
+        expr: histogram_quantile(0.99, sum(rate(flask_http_request_duration_seconds_bucket[2m])) by (le)) > 3
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical latency — p99 above 3s"
+          description: "99th percentile latency has exceeded 3 seconds. Immediate investigation required."
+
+      # ── TRAFFIC ──────────────────────────────────────────────
+      - alert: TrafficDrop
+        expr: sum(rate(flask_http_request_total[3m])) == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Zero traffic detected"
+          description: "No requests received across all replicas for 3 minutes. Service may be unreachable."
+
+      - alert: TrafficSpike
+        expr: sum(rate(flask_http_request_total[1m])) > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Traffic spike detected"
+          description: "Request rate has exceeded 500 req/s — possible DDoS or viral load."
+
+      # ── ERRORS ───────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(flask_http_request_total{status=~"5.."}[2m]))
+            /
+            sum(rate(flask_http_request_total[2m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error rate above 5%"
+          description: "More than 5% of requests are returning 5xx errors."
+
+      - alert: AnyServerError
+        expr: sum(increase(flask_http_request_total{status=~"5.."}[5m])) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Server errors detected"
+          description: "More than 10 server errors in the last 5 minutes."
+
+      # ── SATURATION ──────────────────────────────────────────
+      - alert: HighCPU
+        expr: app_cpu_usage_percent > 90
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CPU saturation critical"
+          description: "CPU usage above 90% on replica {{ $labels.replica }} for 3+ minutes."
+
+      - alert: HighMemory
+        expr: app_ram_usage_percent > 85
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memory saturation critical"
+          description: "RAM usage above 85% on replica {{ $labels.replica }} for 3+ minutes."

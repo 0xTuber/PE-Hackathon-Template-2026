@@ -7,6 +7,8 @@ import uuid
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, g, has_request_context
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Gauge
 
 from app.database import init_db
 from app.routes import register_routes
@@ -53,10 +55,28 @@ def create_app(test_config=None):
     from app import models  # noqa: F401 - registers models with Peewee
 
     register_routes(app)
-    
+
+    # --- Prometheus Instrumentation ---
+    # path='/prom-metrics' avoids conflict with existing JSON /metrics endpoint
+    prom = PrometheusMetrics(app, path='/prom-metrics')
+
+    # Custom saturation gauges
+    cpu_gauge = Gauge('app_cpu_usage_percent', 'Current CPU usage', ['replica'])
+    ram_gauge = Gauge('app_ram_usage_percent', 'Current RAM usage', ['replica'])
+    ram_bytes_gauge = Gauge('app_ram_used_bytes', 'RAM used in bytes', ['replica'])
+
+    replica_id = os.environ.get("HOSTNAME", "standalone")
+
+    @app.after_request
+    def update_saturation_metrics(response):
+        cpu_gauge.labels(replica=replica_id).set(psutil.cpu_percent(interval=None))
+        mem = psutil.virtual_memory()
+        ram_gauge.labels(replica=replica_id).set(mem.percent)
+        ram_bytes_gauge.labels(replica=replica_id).set(mem.used)
+        return response
+
     @app.before_request
     def attach_correlation_id():
-        # Assign incoming header or generate brand new UUID natively securely
         g.request_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
 
     @app.route("/health")
@@ -66,7 +86,7 @@ def create_app(test_config=None):
     @app.route("/metrics")
     def metrics():
         return jsonify({
-            "replica_id": os.environ.get("HOSTNAME", "standalone"),
+            "replica_id": replica_id,
             "cpu_percent": psutil.cpu_percent(interval=0.1),
             "ram_percent": psutil.virtual_memory().percent,
             "ram_used_mb": round(psutil.virtual_memory().used / (1024 * 1024), 2)
