@@ -42,6 +42,9 @@ pipeline {
                         sed -i "s|^DISCORD_WEBHOOK=.*|DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}|" $DEPLOY_DIR/.env || \
                         echo "DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}" >> $DEPLOY_DIR/.env
 
+                    # Inject real webhook URL into Alertmanager config
+                    sed -i "s|DISCORD_WEBHOOK_PLACEHOLDER|${DISCORD_TELEMETRY_WEBHOOK}|" $DEPLOY_DIR/monitoring/alertmanager.yml
+
                     cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
                     cd $DEPLOY_DIR
