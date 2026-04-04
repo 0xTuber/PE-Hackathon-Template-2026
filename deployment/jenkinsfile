@@ -40,7 +40,7 @@ After=network.target
 User=root
 WorkingDirectory=$DEPLOY_DIR
 Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin
-ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5001 app:app
+ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5001 run:app
 Restart=always
 
 [Install]
@@ -81,7 +81,7 @@ After=network.target
 User=root
 WorkingDirectory=$DEPLOY_DIR
 Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin
-ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5000 app:app
+ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5000 run:app
 Restart=always
 
 [Install]
