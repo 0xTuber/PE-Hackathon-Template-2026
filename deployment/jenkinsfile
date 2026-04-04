@@ -76,11 +76,11 @@ pipeline {
                     sudo systemctl disable nginx || true
 
                     cd $DEPLOY_DIR
-                    export PROXY_PORT=5000
                     export COMPOSE_PROJECT_NAME=hackathon-prod
                     docker compose down 2>/dev/null || true
                     docker compose up -d
 
+                    export PROXY_PORT=5001
                     export COMPOSE_PROJECT_NAME=hackathon-staging
                     docker compose down 2>/dev/null || true
 
