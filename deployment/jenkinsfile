@@ -57,39 +57,41 @@ pipeline {
             }
         }
         stage('Switch Traffic') {
-            steps {
-                sh '''
-                    LIVE=$(readlink $ACTIVE_LINK)
-                    if [ "$LIVE" = "$BLUE_DIR" ]; then
-                        DEPLOY_DIR=$GREEN_DIR
-                        OLD_DIR=$BLUE_DIR
-                    else
-                        DEPLOY_DIR=$BLUE_DIR
-                        OLD_DIR=$GREEN_DIR
-                    fi
+    steps {
+        sh '''
+            LIVE=$(readlink $ACTIVE_LINK)
+            if [ "$LIVE" = "$BLUE_DIR" ]; then
+                DEPLOY_DIR=$GREEN_DIR
+                OLD_DIR=$BLUE_DIR
+            else
+                DEPLOY_DIR=$BLUE_DIR
+                OLD_DIR=$GREEN_DIR
+            fi
 
-                    ln -sfn $DEPLOY_DIR $ACTIVE_LINK
+            ln -sfn $DEPLOY_DIR $ACTIVE_LINK
 
-                    sudo systemctl stop hackathon || true
-                    sudo systemctl disable hackathon || true
-                    sudo systemctl stop nginx || true
-                    sudo systemctl disable nginx || true
+            sudo systemctl stop hackathon || true
+            sudo systemctl disable hackathon || true
+            sudo systemctl stop nginx || true
+            sudo systemctl disable nginx || true
 
-                    cd $DEPLOY_DIR
-                    export COMPOSE_PROJECT_NAME=hackathon-prod
-                    docker compose down 2>/dev/null || true
-                    docker compose up -d
+            cd $DEPLOY_DIR
+            unset PROXY_PORT
+            export COMPOSE_PROJECT_NAME=hackathon-prod
+            docker compose down 2>/dev/null || true
+            docker compose up -d
 
-                    export PROXY_PORT=5001
-                    export COMPOSE_PROJECT_NAME=hackathon-staging
-                    docker compose down 2>/dev/null || true
+            export PROXY_PORT=5001
+            export COMPOSE_PROJECT_NAME=hackathon-staging
+            docker compose down 2>/dev/null || true
 
-                    cd $OLD_DIR || true
-                    export COMPOSE_PROJECT_NAME=hackathon-prod
-                    docker compose down 2>/dev/null || true
-                '''
-            }
-        }
+            cd $OLD_DIR || true
+            unset PROXY_PORT
+            export COMPOSE_PROJECT_NAME=hackathon-prod
+            docker compose down 2>/dev/null || true
+        '''
+    }
+}
         stage('Health Check Production') {
             steps {
                 sh '''
