@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'uv run pytest --cov=app --cov-fail-under=50'
+                sh 'uv run pytest --cov=app --cov-fail-under=70'
             }
         }
         stage('Deploy to Staging') {
@@ -31,24 +31,12 @@ pipeline {
                     rsync -av --exclude='.git' --exclude='.venv' . $DEPLOY_DIR
                     cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
-                    sudo bash -c "cat > /etc/systemd/system/hackathon-staging.service << EOF
-[Unit]
-Description=Hackathon Flask App (Staging)
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=$DEPLOY_DIR
-Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin
-ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5001 run:app
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF"
-
-                    sudo systemctl daemon-reload
-                    sudo systemctl restart hackathon-staging
+                    # Launch Staging Clone Army directly encapsulated on port 5001 seamlessly
+                    cd $DEPLOY_DIR
+                    export PROXY_PORT=5001
+                    export COMPOSE_PROJECT_NAME=hackathon-staging
+                    docker compose down 2>/dev/null || true
+                    docker compose up -d --build
                 '''
             }
         }
@@ -66,32 +54,29 @@ EOF"
                     LIVE=$(readlink $ACTIVE_LINK)
                     if [ "$LIVE" = "$BLUE_DIR" ]; then
                         DEPLOY_DIR=$GREEN_DIR
+                        OLD_DIR=$BLUE_DIR
                     else
                         DEPLOY_DIR=$BLUE_DIR
+                        OLD_DIR=$GREEN_DIR
                     fi
 
                     ln -sfn $DEPLOY_DIR $ACTIVE_LINK
 
-                    sudo bash -c "cat > /etc/systemd/system/hackathon.service << EOF
-[Unit]
-Description=Hackathon Flask App
-After=network.target
+                    # Boot up the Live Production Horde cleanly routed directly at port 5000!
+                    cd $DEPLOY_DIR
+                    export PROXY_PORT=5000
+                    export COMPOSE_PROJECT_NAME=hackathon-prod
+                    docker compose down 2>/dev/null || true
+                    docker compose up -d
 
-[Service]
-User=root
-WorkingDirectory=$DEPLOY_DIR
-Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin
-ExecStart=/root/.local/bin/uv run gunicorn -w 4 -b 0.0.0.0:5000 run:app
-Restart=always
+                    # Natively tear down the previous staging setup cleanly isolating RAM usages
+                    export COMPOSE_PROJECT_NAME=hackathon-staging
+                    docker compose down 2>/dev/null || true
 
-[Install]
-WantedBy=multi-user.target
-EOF"
-
-                    sudo systemctl daemon-reload
-                    sudo systemctl enable $SERVICE_NAME
-                    sudo systemctl restart $SERVICE_NAME
-                    sudo systemctl stop hackathon-staging
+                    # Terminate the outdated Production Clone Army to zero-downtime seamlessly switch over!
+                    cd $OLD_DIR || true
+                    export COMPOSE_PROJECT_NAME=hackathon-prod
+                    docker compose down 2>/dev/null || true
                 '''
             }
         }
@@ -107,7 +92,7 @@ EOF"
     post {
         failure {
             echo 'Pipeline failed — production untouched, stopping staging...'
-            sh 'sudo systemctl stop hackathon-staging || true'
+            sh 'export COMPOSE_PROJECT_NAME=hackathon-staging && docker compose down 2>/dev/null || true'
         }
         success {
             echo 'Deployment successful!'

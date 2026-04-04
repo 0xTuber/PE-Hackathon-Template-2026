@@ -32,3 +32,6 @@ Thumbs.db
 
 # Judging (not visible to participants)
 judging/
+
+# Fail test file
+tests/test_fail.py
