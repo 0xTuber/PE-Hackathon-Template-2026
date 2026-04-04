@@ -5,4 +5,10 @@ def register_routes(app):
         from app.routes.products import products_bp
         app.register_blueprint(products_bp)
     """
-    pass
+    from app.routes.user import user_bp
+    from app.routes.url import url_bp
+    from app.routes.redirect import redirect_bp
+    
+    app.register_blueprint(user_bp, url_prefix="/api")
+    app.register_blueprint(url_bp, url_prefix="/api")
+    app.register_blueprint(redirect_bp)
