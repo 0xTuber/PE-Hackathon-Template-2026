@@ -1,13 +1,47 @@
-# MLH PE Hackathon — Flask + Peewee + PostgreSQL Template
+# 🔗 Watchtower — URL Shortener Platform
 
-A minimal hackathon starter template. You get the scaffolding and database wiring — you build the models, routes, and CSV loading logic.
+A production-grade URL shortener built for the MLH Production Engineering Hackathon. Features horizontal scaling, Redis caching, blue/green deployments, full observability, and a CI/CD pipeline.
 
-**Stack:** Flask · Peewee ORM · PostgreSQL · uv
+**Stack:** Flask · Peewee ORM · PostgreSQL · Redis · Nginx · Docker · Prometheus · Grafana · Jenkins
+
+---
+
+## Architecture
+
+```
+                         ┌──────────────┐
+                         │   Internet   │
+                         └──────┬───────┘
+                                │
+                         ┌──────▼───────┐
+                 :80/:5001│    Nginx     │
+                         │ (Load Bal.)  │
+                         └──┬───────┬───┘
+                            │       │
+                   ┌────────▼──┐ ┌──▼────────┐
+                   │   web_1   │ │   web_2   │
+                   │Flask:5000 │ │Flask:5000 │
+                   └────┬──┬───┘ └──┬──┬─────┘
+                        │  │        │  │
+               ┌────────▼──▼────────▼──▼────────┐
+               │                                │
+        ┌──────▼──────┐               ┌─────────▼─────────┐
+        │  PostgreSQL  │               │   Redis (Cache)   │
+        │  (Host:5432) │               │   (Container)     │
+        └──────────────┘               └───────────────────┘
+
+        ┌──────────────────────────────────────────────────┐
+        │              Monitoring Stack                    │
+        │  Prometheus :9090 → Grafana :3000                │
+        │  Alertmanager :9093 → Discord Webhook            │
+        └──────────────────────────────────────────────────┘
+```
+
+---
 
 ## Prerequisites
 
-- **uv** — a fast Python package manager that handles Python versions, virtual environments, and dependencies automatically.
-  Install it with:
+- **uv** — fast Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
   ```bash
   # macOS / Linux
   curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -15,174 +49,183 @@ A minimal hackathon starter template. You get the scaffolding and database wirin
   # Windows (PowerShell)
   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
   ```
-  For other methods see the [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/).
-- PostgreSQL running locally (you can use Docker or a local instance)
+- **PostgreSQL** running locally or via Docker
+- **Docker** and **Docker Compose** (for containerized deployment)
 
-## uv Basics
-
-`uv` manages your Python version, virtual environment, and dependencies automatically — no manual `python -m venv` needed.
-
-| Command | What it does |
-|---------|--------------|
-| `uv sync` | Install all dependencies (creates `.venv` automatically) |
-| `uv run <script>` | Run a script using the project's virtual environment |
-| `uv add <package>` | Add a new dependency |
-| `uv remove <package>` | Remove a dependency |
+---
 
 ## Quick Start
 
 ```bash
 # 1. Clone the repo
-git clone <repo-url> && cd mlh-pe-hackathon
+git clone git@github.com:0xTuber/PE-Hackathon-Template-2026.git
+cd PE-Hackathon-Template-2026
 
 # 2. Install dependencies
 uv sync
 
-# 3. Create the database
+# 3. Set up environment
+cp .env.example .env   # edit DB credentials if yours differ
+
+# 4. Create the database
 createdb hackathon_db
 
-# 4. Configure environment
-cp .env.example .env   # edit if your DB credentials differ
+# 5. Set up tables and seed data
+PYTHONPATH=. uv run python scripts/db_setup.py
 
-# 5. Run the server
+# 6. Run the server
 uv run run.py
 
-# 6. Verify
+# 7. Verify
 curl http://localhost:5000/health
 # → {"status":"ok"}
 ```
 
+### Running with Docker (Production-like)
+
+```bash
+# Start the full stack (2 replicas + nginx + redis + monitoring)
+docker compose up -d --build
+
+# Check health
+curl http://localhost/health
+
+# Open Grafana dashboard
+open http://localhost:3000   # admin / hackathon
+```
+
+---
+
+## API Reference
+
+### System Endpoints
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `GET` | `/health` | Health check | `{"status": "ok"}` → `200` |
+| `GET` | `/metrics` | System metrics (JSON) | CPU%, RAM%, replica ID → `200` |
+| `GET` | `/prom-metrics` | Prometheus metrics | Prometheus text format → `200` |
+| `GET` | `/logs` | Last 100 structured log entries | JSON array → `200` |
+
+### User Endpoints (`/api`)
+
+| Method | Endpoint | Description | Body | Response |
+|--------|----------|-------------|------|----------|
+| `GET` | `/api/users` | List all users | — | `[{user}]` → `200` |
+| `GET` | `/api/users/:id` | Get user by ID | — | `{user}` → `200` or `404` |
+| `POST` | `/api/users` | Create user | `{"username": "...", "email": "..."}` | `{user}` → `201` or `409` |
+
+### URL Endpoints (`/api`)
+
+| Method | Endpoint | Description | Body | Response |
+|--------|----------|-------------|------|----------|
+| `GET` | `/api/urls` | List all URLs | — | `[{url}]` → `200` |
+| `POST` | `/api/urls` | Create short URL | `{"original_url": "https://...", "title": "..."}` | `{url}` → `201` |
+
+### Redirect Endpoint
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `GET` | `/:short_code` | Redirect to original URL | `302` redirect (cache HIT/MISS via `X-Cache-Status` header) |
+
+### Example Requests
+
+```bash
+# Create a user
+curl -X POST http://localhost/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo", "email": "demo@test.com"}'
+
+# Shorten a URL
+curl -X POST http://localhost/api/urls \
+  -H "Content-Type: application/json" \
+  -d '{"original_url": "https://github.com", "title": "GitHub"}'
+
+# Follow a short link (replace abc123 with actual short code)
+curl -L http://localhost/abc123
+```
+
+---
+
 ## Project Structure
 
 ```
-mlh-pe-hackathon/
+PE-Hackathon-Template-2026/
 ├── app/
-│   ├── __init__.py          # App factory (create_app)
-│   ├── database.py          # DatabaseProxy, BaseModel, connection hooks
-│   ├── models/
-│   │   └── __init__.py      # Import your models here
+│   ├── __init__.py            # App factory, Prometheus instrumentation, routes
+│   ├── database.py            # Peewee DatabaseProxy + connection hooks
+│   ├── models/                # Peewee ORM models
+│   │   ├── user.py            # User model
+│   │   ├── url.py             # URL model (short_code, original_url)
+│   │   └── event.py           # Click tracking events
 │   └── routes/
-│       └── __init__.py      # register_routes() — add blueprints here
-├── .env.example             # DB connection template
-├── .gitignore               # Python + uv gitignore
-├── .python-version          # Pin Python version for uv
-├── pyproject.toml           # Project metadata + dependencies
-├── run.py                   # Entry point: uv run run.py
-└── README.md
+│       ├── user.py            # CRUD for users
+│       ├── url.py             # CRUD for URLs
+│       └── redirect.py        # Short code redirect + Redis cache
+├── deployment/
+│   └── jenkinsfile            # CI/CD pipeline (blue/green)
+├── docs/                      # Documentation
+├── monitoring/
+│   ├── prometheus.yml         # Prometheus scrape config
+│   ├── alert_rules.yml        # Alert rules (4 golden signals)
+│   ├── alertmanager.yml       # Discord webhook routing
+│   └── grafana/               # Dashboard provisioning
+├── nginx/
+│   └── nginx.conf             # Load balancer config
+├── scripts/
+│   ├── db_setup.py            # Table creation + CSV seed loader
+│   └── watchdog.py            # Health check + Discord alerts
+├── seeds/                     # CSV seed data (users, urls, events)
+├── tests/                     # Pytest test suite
+├── docker-compose.yml         # Full stack: web×2, nginx, redis, prometheus, grafana
+├── Dockerfile
+├── pyproject.toml
+└── locustfile.py              # Load testing scenarios
 ```
 
-## How to Add a Model
+---
 
-1. Create a file in `app/models/`, e.g. `app/models/product.py`:
+## Running Tests
 
-```python
-from peewee import CharField, DecimalField, IntegerField
+```bash
+# Run all tests with coverage
+uv run pytest --cov=app --cov-fail-under=70
 
-from app.database import BaseModel
-
-
-class Product(BaseModel):
-    name = CharField()
-    category = CharField()
-    price = DecimalField(decimal_places=2)
-    stock = IntegerField()
+# Run a specific test file
+uv run pytest tests/test_health.py -v
 ```
 
-2. Import it in `app/models/__init__.py`:
+---
 
-```python
-from app.models.product import Product
-```
+## Monitoring
 
-3. Create the table (run once in a Python shell or a setup script):
+After deploying with Docker Compose, the monitoring stack is available at:
 
-```python
-from app.database import db
-from app.models.product import Product
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **Grafana** | `http://<server>:3000` | `admin` / `hackathon` (anonymous viewing enabled) |
+| **Prometheus** | `http://<server>:9090` | — |
+| **Alertmanager** | `http://<server>:9093` | — |
 
-db.create_tables([Product])
-```
+The Grafana dashboard **"Golden Signals — Command Center"** is auto-provisioned on startup and tracks:
+- **Latency**: p50/p95/p99 + per-endpoint averages
+- **Traffic**: RPS by method + endpoint
+- **Errors**: 5xx rate gauge + status breakdown + top error endpoints
+- **Saturation**: CPU and RAM gauges per replica
 
-## How to Add Routes
+---
 
-1. Create a blueprint in `app/routes/`, e.g. `app/routes/products.py`:
+## Documentation Index
 
-```python
-from flask import Blueprint, jsonify
-from playhouse.shortcuts import model_to_dict
-
-from app.models.product import Product
-
-products_bp = Blueprint("products", __name__)
-
-
-@products_bp.route("/products")
-def list_products():
-    products = Product.select()
-    return jsonify([model_to_dict(p) for p in products])
-```
-
-2. Register it in `app/routes/__init__.py`:
-
-```python
-def register_routes(app):
-    from app.routes.products import products_bp
-    app.register_blueprint(products_bp)
-```
-
-## How to Load CSV Data
-
-```python
-import csv
-from peewee import chunked
-from app.database import db
-from app.models.product import Product
-
-def load_csv(filepath):
-    with open(filepath, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    with db.atomic():
-        for batch in chunked(rows, 100):
-            Product.insert_many(batch).execute()
-```
-
-## Useful Peewee Patterns
-
-```python
-from peewee import fn
-from playhouse.shortcuts import model_to_dict
-
-# Select all
-products = Product.select()
-
-# Filter
-cheap = Product.select().where(Product.price < 10)
-
-# Get by ID
-p = Product.get_by_id(1)
-
-# Create
-Product.create(name="Widget", category="Tools", price=9.99, stock=50)
-
-# Convert to dict (great for JSON responses)
-model_to_dict(p)
-
-# Aggregations
-avg_price = Product.select(fn.AVG(Product.price)).scalar()
-total = Product.select(fn.SUM(Product.stock)).scalar()
-
-# Group by
-from peewee import fn
-query = (Product
-         .select(Product.category, fn.COUNT(Product.id).alias("count"))
-         .group_by(Product.category))
-```
-
-## Tips
-
-- Use `model_to_dict` from `playhouse.shortcuts` to convert model instances to dictionaries for JSON responses.
-- Wrap bulk inserts in `db.atomic()` for transactional safety and performance.
-- The template uses `teardown_appcontext` for connection cleanup, so connections are closed even when requests fail.
-- Check `.env.example` for all available configuration options.
+| Document | Purpose |
+|----------|---------|
+| [Deploy Guide](docs/deploy_guide.md) | How to deploy and rollback |
+| [Runbook](docs/runbook.md) | Step-by-step incident response |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues and fixes |
+| [Config Reference](docs/config_reference.md) | All environment variables |
+| [Decision Log](docs/decision_log.md) | Why we chose each technology |
+| [Capacity Plan](docs/capacity_plan.md) | Load limits and scaling strategy |
+| [Sherlock Mode](docs/sherlock_mode.md) | Root-cause analysis walkthrough |
+| [Bottleneck Report](docs/bottleneck_report.md) | Redis caching optimization |
+| [Load Test Baseline](docs/load_test_baseline.md) | 50-user baseline test |
+| [Load Test Swarm](docs/load_test_swarm.md) | 200-user swarm test |
