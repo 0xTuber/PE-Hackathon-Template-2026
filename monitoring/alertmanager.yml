@@ -12,7 +12,6 @@ receivers:
   - name: 'discord-alerts'
     slack_configs:
       - api_url: 'DISCORD_WEBHOOK_PLACEHOLDER/slack'
-        channel: '#alerts'
         send_resolved: true
         title: '{{ if eq .Status "firing" }}🔴 ALERT{{ else }}✅ RESOLVED{{ end }}: {{ .CommonLabels.alertname }}'
         text: >-
