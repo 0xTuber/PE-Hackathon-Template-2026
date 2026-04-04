@@ -93,3 +93,14 @@ services:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    depends_on:
+      - discord-relay
+
+  discord-relay:
+    image: python:3.13-slim
+    restart: always
+    command: python /app/discord_relay.py
+    environment:
+      - DISCORD_WEBHOOK=${DISCORD_WEBHOOK}
+    volumes:
+      - ./scripts/discord_relay.py:/app/discord_relay.py:ro

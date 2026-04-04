@@ -10,11 +10,6 @@ route:
 
 receivers:
   - name: 'discord-alerts'
-    slack_configs:
-      - api_url: 'DISCORD_WEBHOOK_PLACEHOLDER/slack'
+    webhook_configs:
+      - url: 'http://discord-relay:9095/'
         send_resolved: true
-        title: '{{ if eq .Status "firing" }}🔴 ALERT{{ else }}✅ RESOLVED{{ end }}: {{ .CommonLabels.alertname }}'
-        text: >-
-          *Severity:* {{ .CommonLabels.severity }}
-          *Description:* {{ (index .Alerts 0).Annotations.description }}
-          *Instances:* {{ len .Alerts }}
