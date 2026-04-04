@@ -35,11 +35,12 @@ pipeline {
                         DEPLOY_DIR=$BLUE_DIR
                     fi
 
-                    # Copy the template .env to guarantee Database mappings exist natively!
-                    cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env
-                    
-                    # Inject secure runtime SRE webhooks permanently isolated from Github
-                    echo "DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}" >> $DEPLOY_DIR/.env
+                    rsync -av --exclude='.git' --exclude='.venv' --exclude='.env' . $DEPLOY_DIR/
+
+                    # Safely upsert webhook into .env without overwriting DB creds
+                    grep -q "^DISCORD_WEBHOOK=" $DEPLOY_DIR/.env && \
+                        sed -i "s|^DISCORD_WEBHOOK=.*|DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}|" $DEPLOY_DIR/.env || \
+                        echo "DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}" >> $DEPLOY_DIR/.env
 
                     cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
@@ -115,7 +116,7 @@ pipeline {
             echo 'Pipeline failed — production untouched, stopping staging...'
             sh 'export COMPOSE_PROJECT_NAME=hackathon-staging && docker compose down 2>/dev/null || true'
             discordSend(
-                webhookURL: "${DISCORD_WEBHOOK}",
+                webhookURL: env.DISCORD_WEBHOOK,
                 title: 'Pipeline Failed',
                 description: "Build #${env.BUILD_NUMBER} failed on branch ${env.GIT_BRANCH}\nCheck logs: ${env.BUILD_URL}",
                 result: 'FAILURE',
@@ -124,7 +125,7 @@ pipeline {
         }
         success {
             discordSend(
-                webhookURL: "${DISCORD_WEBHOOK}",
+                webhookURL: env.DISCORD_WEBHOOK,
                 title: 'Deployment Successful',
                 description: "Build #${env.BUILD_NUMBER} deployed successfully to production\n${env.BUILD_URL}",
                 result: 'SUCCESS',
