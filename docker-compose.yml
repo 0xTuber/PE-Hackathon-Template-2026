@@ -18,6 +18,8 @@ services:
       - DATABASE_PASSWORD=postgres
       - DATABASE_PORT=5432
       - REDIS_HOST=redis
+    volumes:
+      - ./logs:/app/logs
 
   web_2:
     build: .
@@ -36,6 +38,8 @@ services:
       - DATABASE_PASSWORD=postgres
       - DATABASE_PORT=5432
       - REDIS_HOST=redis
+    volumes:
+      - ./logs:/app/logs
 
   nginx:
     image: nginx:latest

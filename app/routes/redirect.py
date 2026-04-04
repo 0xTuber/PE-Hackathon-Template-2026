@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import Blueprint, redirect, jsonify, request
+from flask import Blueprint, redirect, jsonify, request, current_app
 from peewee import fn
 import redis
 import os
@@ -19,11 +19,10 @@ def redirect_to_url(short_code):
     try:
         cached_url = redis_client.get(f"url:{short_code}")
         if cached_url:
-            # Shift heavy DB sync writes entirely to blistering RAM `INCR` commands 
+            current_app.logger.info("Memory Cache Hit", extra={"component": "redis", "short_code": short_code})
             redis_client.incr(f"clicks:{short_code}")
             
             response = redirect(cached_url)
-            # Evidence of Caching (Loot Header)
             response.headers["X-Cache-Status"] = "HIT"
             return response
     except redis.ConnectionError:
@@ -53,11 +52,12 @@ def redirect_to_url(short_code):
     
     # 3. Secure output directly back to Redis to bypass the bottleneck perfectly
     try:
-        # Cache for exactly one hour securely
         redis_client.setex(f"url:{short_code}", 3600, url.original_url)
     except redis.ConnectionError:
+        current_app.logger.warning("Redis Offline - Skipping caching", extra={"component": "redis_error"})
         pass
     
+    current_app.logger.info("Database Fallback Successful", extra={"component": "postgres", "short_code": short_code})
     response = redirect(url.original_url)
     response.headers["X-Cache-Status"] = "MISS"
     return response

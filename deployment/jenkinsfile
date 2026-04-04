@@ -6,6 +6,7 @@ pipeline {
         ACTIVE_LINK = '/var/www/hackathon'
         SERVICE_NAME = 'hackathon'
         PATH = "/root/.local/bin:${env.PATH}"
+        DISCORD_WEBHOOK = credentials('discord-webhook')
     }
     stages {
         stage('Build') {
@@ -56,37 +57,44 @@ pipeline {
                 '''
             }
         }
+        stage('Approve Deployment') {
+            steps {
+                timeout(time: 15, unit: 'MINUTES') {
+                    input message: 'Staging looks good. Deploy to production?', ok: 'Deploy'
+                }
+            }
+        }
         stage('Switch Traffic') {
-    steps {
-        sh '''
-            LIVE=$(readlink $ACTIVE_LINK)
-            if [ "$LIVE" = "$BLUE_DIR" ]; then
-                DEPLOY_DIR=$GREEN_DIR
-                OLD_DIR=$BLUE_DIR
-            else
-                DEPLOY_DIR=$BLUE_DIR
-                OLD_DIR=$GREEN_DIR
-            fi
+            steps {
+                sh '''
+                    LIVE=$(readlink $ACTIVE_LINK)
+                    if [ "$LIVE" = "$BLUE_DIR" ]; then
+                        DEPLOY_DIR=$GREEN_DIR
+                        OLD_DIR=$BLUE_DIR
+                    else
+                        DEPLOY_DIR=$BLUE_DIR
+                        OLD_DIR=$GREEN_DIR
+                    fi
 
-            ln -sfn $DEPLOY_DIR $ACTIVE_LINK
+                    ln -sfn $DEPLOY_DIR $ACTIVE_LINK
 
-            sudo systemctl stop hackathon || true
-            sudo systemctl disable hackathon || true
-            sudo systemctl stop nginx || true
-            sudo systemctl disable nginx || true
+                    sudo systemctl stop hackathon || true
+                    sudo systemctl disable hackathon || true
+                    sudo systemctl stop nginx || true
+                    sudo systemctl disable nginx || true
 
-            cd $DEPLOY_DIR
-            unset PROXY_PORT
-            export COMPOSE_PROJECT_NAME=hackathon-prod
-            docker compose down 2>/dev/null || true
-            docker compose up -d
+                    cd $DEPLOY_DIR
+                    unset PROXY_PORT
+                    export COMPOSE_PROJECT_NAME=hackathon-prod
+                    docker compose down 2>/dev/null || true
+                    docker compose up -d
 
-            export PROXY_PORT=5001
-            export COMPOSE_PROJECT_NAME=hackathon-staging
-            docker compose down 2>/dev/null || true
-        '''
-    }
-}
+                    export PROXY_PORT=5001
+                    export COMPOSE_PROJECT_NAME=hackathon-staging
+                    docker compose down 2>/dev/null || true
+                '''
+            }
+        }
         stage('Health Check Production') {
             steps {
                 sh '''
@@ -100,9 +108,22 @@ pipeline {
         failure {
             echo 'Pipeline failed — production untouched, stopping staging...'
             sh 'export COMPOSE_PROJECT_NAME=hackathon-staging && docker compose down 2>/dev/null || true'
+            discordSend(
+                webhookURL: "${DISCORD_WEBHOOK}",
+                title: '❌ Pipeline Failed',
+                description: "Build #${env.BUILD_NUMBER} failed on branch ${env.GIT_BRANCH}\nCheck logs: ${env.BUILD_URL}",
+                result: 'FAILURE',
+                footer: 'Jenkins CI/CD'
+            )
         }
         success {
-            echo 'Deployment successful!'
+            discordSend(
+                webhookURL: "${DISCORD_WEBHOOK}",
+                title: '✅ Deployment Successful',
+                description: "Build #${env.BUILD_NUMBER} deployed successfully to production\n${env.BUILD_URL}",
+                result: 'SUCCESS',
+                footer: 'Jenkins CI/CD'
+            )
         }
     }
 }
