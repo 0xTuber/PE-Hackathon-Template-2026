@@ -29,7 +29,7 @@ pipeline {
                     fi
 
                     rsync -av --exclude='.git' --exclude='.venv' . $DEPLOY_DIR
-                    cd $DEPLOY_DIR && uv run python scripts/db_setup.py
+                    cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
                     sudo bash -c "cat > /etc/systemd/system/hackathon-staging.service << EOF
 [Unit]
