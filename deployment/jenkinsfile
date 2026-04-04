@@ -72,6 +72,8 @@ pipeline {
 
                     sudo systemctl stop hackathon || true
                     sudo systemctl disable hackathon || true
+                    sudo systemctl stop nginx || true
+                    sudo systemctl disable nginx || true
 
                     cd $DEPLOY_DIR
                     export PROXY_PORT=5000
