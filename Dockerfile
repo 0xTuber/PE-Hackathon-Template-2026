@@ -16,5 +16,8 @@ COPY . .
 
 EXPOSE 5000
 
+ENV PROMETHEUS_MULTIPROC_DIR=/tmp/multiproc
+RUN mkdir -p /tmp/multiproc
+
 # Spin up Gunicorn WSGI pointing at run:app to securely launch horizontal bindings
-CMD ["uv", "run", "gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "run:app"]
+CMD sh -c "rm -rf /tmp/multiproc/* && uv run gunicorn -w 4 -b 0.0.0.0:5000 run:app"

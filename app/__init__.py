@@ -7,7 +7,7 @@ import uuid
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, g, has_request_context
-from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from prometheus_client import Gauge
 
 from app.database import init_db
@@ -58,12 +58,12 @@ def create_app(test_config=None):
 
     # --- Prometheus Instrumentation ---
     # path='/prom-metrics' avoids conflict with existing JSON /metrics endpoint
-    prom = PrometheusMetrics(app, path='/prom-metrics')
+    prom = GunicornPrometheusMetrics(app, path='/prom-metrics')
 
     # Custom saturation gauges
-    cpu_gauge = Gauge('app_cpu_usage_percent', 'Current CPU usage', ['replica'])
-    ram_gauge = Gauge('app_ram_usage_percent', 'Current RAM usage', ['replica'])
-    ram_bytes_gauge = Gauge('app_ram_used_bytes', 'RAM used in bytes', ['replica'])
+    cpu_gauge = Gauge('app_cpu_usage_percent', 'Current CPU usage', ['replica'], multiprocess_mode='max')
+    ram_gauge = Gauge('app_ram_usage_percent', 'Current RAM usage', ['replica'], multiprocess_mode='max')
+    ram_bytes_gauge = Gauge('app_ram_used_bytes', 'RAM used in bytes', ['replica'], multiprocess_mode='max')
 
     replica_id = os.environ.get("HOSTNAME", "standalone")
 
