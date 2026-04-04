@@ -1,16 +1,20 @@
 import time
 import requests
 import os
+from dotenv import load_dotenv
 
-# Fire Drill: Connect alerts to a channel safely
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
-TARGET_URL = os.getenv("WATCHDOG_TARGET", "http://143.198.39.217") # Defaults to production
+# Securely bind the internal Jenkins .env deployments natively
+load_dotenv()
+
+# Fire Drill: Connect alerts to a channel safely (Loaded securely from Jenkins/Env)
+WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK", "")
+TARGET_URL = os.getenv("WATCHDOG_TARGET", "http://localhost") # Defaults natively to evaluate the local physical machine
 
 def fire_alarm(message):
-    print(f"🚨 ALARM TRIGGERED 🚨: {message}")
+    print(f"ALARM TRIGGERED: {message}")
     if WEBHOOK_URL:
         try:
-            requests.post(WEBHOOK_URL, json={"content": f"🚨 **PRODUCTION INCIDENT** 🚨\n{message}"}, timeout=5)
+            requests.post(WEBHOOK_URL, json={"content": f"**PRODUCTION INCIDENT**\n{message}"}, timeout=5)
         except Exception as e:
             print(f"Failed to push to webhook: {e}")
 
@@ -21,7 +25,7 @@ def pull_fire_alarm():
 def scan_infrastructure():
     print(f"Watchdog initialized. Scanning {TARGET_URL} every 60 seconds...")
     if not WEBHOOK_URL:
-        print("⚠️ WARNING: WEBHOOK_URL is not set. Alarms will only print to terminal. Add a Discord/Slack webhook to get Phone Bings!")
+        print("WARNING: WEBHOOK_URL is not set. Alarms will only print to terminal.")
 
     while True:
         # 1. Traps: Configure alerts for "Service Down"

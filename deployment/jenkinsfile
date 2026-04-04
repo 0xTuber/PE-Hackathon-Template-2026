@@ -3,10 +3,10 @@ pipeline {
     environment {
         BLUE_DIR = '/var/www/hackathon-blue'
         GREEN_DIR = '/var/www/hackathon-green'
-        ACTIVE_LINK = '/var/www/hackathon'
         SERVICE_NAME = 'hackathon'
         PATH = "/root/.local/bin:${env.PATH}"
         DISCORD_WEBHOOK = credentials('discord-webhook')
+        DISCORD_TELEMETRY_WEBHOOK = credentials('discord-telemetry-webhook')
     }
     stages {
         stage('Build') {
@@ -34,7 +34,9 @@ pipeline {
                         DEPLOY_DIR=$BLUE_DIR
                     fi
 
-                    rsync -av --exclude='.git' --exclude='.venv' . $DEPLOY_DIR
+                    # Inject secure runtime SRE webhooks permanently isolated from Github
+                    echo "DISCORD_WEBHOOK=${DISCORD_TELEMETRY_WEBHOOK}" > $DEPLOY_DIR/.env
+
                     cd $DEPLOY_DIR && PYTHONPATH=. uv run python scripts/db_setup.py
 
                     cd $DEPLOY_DIR

@@ -4,7 +4,7 @@
 To gather your terminal screenshot containing exactly **50 concurrent users**, test directly against your live production server by running:
 
 ```bash
-uv run locust --headless -u 50 -r 10 --run-time 30s --host http://143.198.39.217
+uv run locust --headless -u 50 -r 10 --run-time 30s --host http://<YOUR_SERVER_IP>
 ```
 This instructs `Locust` to spin up 50 isolated concurrent user streams (spawning 10 per second) completely isolated from a web interface (Terminal Mode), attacking the target backend dynamically. 
 

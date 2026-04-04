@@ -12,12 +12,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - DATABASE_HOST=host.docker.internal
-      - DATABASE_NAME=hackathon_db
-      - DATABASE_USER=hackathon
-      - DATABASE_PASSWORD=postgres
-      - DATABASE_PORT=5432
-      - REDIS_HOST=redis
+      - DATABASE_HOST=${DATABASE_HOST:-host.docker.internal}
+      - DATABASE_NAME=${DATABASE_NAME:-hackathon_db}
+      - DATABASE_USER=${DATABASE_USER:-hackathon}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - REDIS_HOST=${REDIS_HOST:-redis}
     volumes:
       - ./logs:/app/logs
 
@@ -32,12 +32,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - DATABASE_HOST=host.docker.internal
-      - DATABASE_NAME=hackathon_db
-      - DATABASE_USER=hackathon
-      - DATABASE_PASSWORD=postgres
-      - DATABASE_PORT=5432
-      - REDIS_HOST=redis
+      - DATABASE_HOST=${DATABASE_HOST:-host.docker.internal}
+      - DATABASE_NAME=${DATABASE_NAME:-hackathon_db}
+      - DATABASE_USER=${DATABASE_USER:-hackathon}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
+      - DATABASE_PORT=${DATABASE_PORT:-5432}
+      - REDIS_HOST=${REDIS_HOST:-redis}
     volumes:
       - ./logs:/app/logs
 

@@ -25,7 +25,7 @@ Now, unleash your 200 simultaneous users natively. Your Nginx traffic cop will a
 
 If evaluating natively on your production server from your local terminal, run the execution directly:
 ```bash
-uv run locust --headless -u 200 -r 20 --run-time 60s --host http://143.198.39.217
+uv run locust --headless -u 200 -r 20 --run-time 60s --host http://<YOUR_SERVER_IP>
 ```
 *(If you are exclusively evaluating on your localhost laptop, replace the host cleanly with `http://localhost`).*
 
