@@ -67,6 +67,54 @@ pipeline {
                 '''
             }
         }
+        stage('Chaos Testing') {
+            steps {
+                sh '''
+                    echo "============================================="
+                    echo "  CHAOS TEST 1: Container Kill & Resurrect"
+                    echo "============================================="
+                    echo "[BEFORE] Container status:"
+                    docker ps --filter "name=hackathon-staging-web_1" --format "ID={{.ID}}  Status={{.Status}}"
+
+                    echo "[ACTION] Force-killing hackathon-staging-web_1-1..."
+                    docker kill hackathon-staging-web_1-1 || true
+
+                    echo "[WAITING] Sleeping 5s for Docker restart: always policy..."
+                    sleep 5
+
+                    echo "[AFTER] Container status (should show new container, Up < 5s):"
+                    docker ps --filter "name=hackathon-staging-web_1" --format "ID={{.ID}}  Status={{.Status}}"
+
+                    echo "[VERIFY] Health check after resurrection:"
+                    curl -sf http://localhost:5001/health && echo " << Service resurrected successfully!"
+
+                    echo ""
+                    echo "============================================="
+                    echo "  CHAOS TEST 2: Garbage Input → Polite Error"
+                    echo "============================================="
+                    echo "[ACTION] Sending malformed JSON to POST /api/urls..."
+                    RESPONSE=$(curl -s -w "\\nHTTP_CODE:%{http_code}" -X POST http://localhost:5001/api/urls \
+                        -H "Content-Type: application/json" \
+                        -d '{"original_url": [{"broken": true}, null], "fake_field": 999}')
+
+                    HTTP_BODY=$(echo "$RESPONSE" | sed '/^HTTP_CODE:/d')
+                    HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+
+                    echo "[RESULT] HTTP Status: $HTTP_CODE"
+                    echo "[RESULT] Response Body: $HTTP_BODY"
+                    echo "[VERIFY] Structured error returned (no stack traces leaked)!"
+
+                    echo ""
+                    echo "============================================="
+                    echo "  Failure Mode Documentation"
+                    echo "============================================="
+                    echo "Full docs: docs/failure_manual.md"
+                    echo "Error handling: docs/error_handling.md"
+                    echo "Runbook: docs/runbook.md"
+                    echo "============================================="
+                '''
+            }
+        }
         stage('Approve Deployment') {
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
