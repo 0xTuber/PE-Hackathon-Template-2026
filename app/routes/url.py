@@ -19,8 +19,26 @@ def generate_short_code(length=6):
 
 @url_bp.route("/urls", methods=["GET"])
 def list_urls():
-    urls = URL.select()
-    return jsonify([model_to_dict(u) for u in urls])
+    query = URL.select()
+    
+    user_id = request.args.get("user_id", type=int)
+    if user_id:
+        query = query.where(URL.user_id == user_id)
+    
+    is_active = request.args.get("is_active")
+    if is_active is not None:
+        active_val = is_active.lower() in ("true", "1", "yes")
+        query = query.where(URL.is_active == active_val)
+    
+    return jsonify([model_to_dict(u) for u in query])
+
+@url_bp.route("/urls/<int:url_id>", methods=["GET"])
+def get_url(url_id):
+    try:
+        url = URL.get(URL.id == url_id)
+        return jsonify(model_to_dict(url))
+    except URL.DoesNotExist:
+        return jsonify({"error": "URL not found"}), 404
 
 @url_bp.route("/urls", methods=["POST"])
 def create_url():
@@ -52,3 +70,35 @@ def create_url():
     )
     
     return jsonify(model_to_dict(new_url)), 201
+
+@url_bp.route("/urls/<int:url_id>", methods=["PUT"])
+def update_url(url_id):
+    try:
+        url = URL.get(URL.id == url_id)
+    except URL.DoesNotExist:
+        return jsonify({"error": "URL not found"}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    if "title" in data:
+        url.title = data["title"]
+    if "original_url" in data:
+        url.original_url = data["original_url"]
+    if "is_active" in data:
+        url.is_active = data["is_active"]
+    
+    url.updated_at = datetime.utcnow()
+    url.save()
+    return jsonify(model_to_dict(url))
+
+@url_bp.route("/urls/<int:url_id>", methods=["DELETE"])
+def delete_url(url_id):
+    try:
+        url = URL.get(URL.id == url_id)
+    except URL.DoesNotExist:
+        return jsonify({"error": "URL not found"}), 404
+    
+    url.delete_instance()
+    return jsonify({"message": "URL deleted"}), 200

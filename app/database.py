@@ -2,6 +2,7 @@ import os
 
 from peewee import DatabaseProxy, Model, PostgresqlDatabase
 
+
 db = DatabaseProxy()
 
 
@@ -23,6 +24,17 @@ def init_db(app):
             password=os.environ.get("DATABASE_PASSWORD", "postgres"),
         )
     db.initialize(database)
+
+    # Auto-create tables on startup so the app works in any fresh environment
+    try:
+        db.connect(reuse_if_open=True)
+        from app.models.user import User
+        from app.models.url import URL
+        from app.models.event import Event
+        db.create_tables([User, URL, Event], safe=True)
+        db.close()
+    except Exception:
+        pass  # Tables may already exist or DB not ready yet
 
     @app.before_request
     def _db_connect():
