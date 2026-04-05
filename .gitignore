@@ -34,4 +34,4 @@ Thumbs.db
 judging/
 
 # Fail test file
-tests/test_fail.py
+# tests/test_fail.py

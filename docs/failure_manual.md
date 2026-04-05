@@ -4,15 +4,49 @@ This documentation exclusively defines exactly what natively occurs when the app
 
 ## 1. Process Termination (The Immortal Restart)
 **Scenario**: The core python web-server logic natively crashes un-gracefully, runs entirely out of server memory (`OOM`), or is explicitly and aggressively killed by operators.
-**Architectural Fallback**: We deployed a native Ubuntu `systemd` worker file configured explicitly with `Restart=always` instructing the native operating system daemon to aggressively reboot the server within milliseconds if the main evaluation dies organically or artificially.
-**Live Verification Check**: 
-Go ahead, purposefully kill the app using root:
-```bash
-# Natively terminate the process instance instantly
-sudo pkill -9 gunicorn
 
-# Ensure the server continues evaluating smoothly via system daemon re-allocations
-sudo systemctl status hackathon
+**Architectural Fallback**: Every service in `docker-compose.yml` is configured with `restart: always`, instructing Docker to automatically reboot any container that exits — whether from a crash, OOM kill, or manual termination. This applies to all services: `web_1`, `web_2`, `nginx`, `redis`, `prometheus`, `grafana`, `alertmanager`, and `discord-relay`.
+
+**Live Verification Check** — Force-kill a container and watch Docker auto-restart it:
+```bash
+# 1. Check current container status
+docker ps --filter "name=hackathon-prod-web_1" --format "{{.ID}}  {{.Status}}"
+# Output: a1b2c3d4e5f6  Up 2 hours (healthy)
+
+# 2. Force-kill the container to simulate a crash
+docker kill hackathon-prod-web_1-1
+
+# 3. Wait 3 seconds, then verify Docker restarted it automatically
+sleep 3
+docker ps --filter "name=hackathon-prod-web_1" --format "{{.ID}}  {{.Status}}"
+# Output: f6e5d4c3b2a1  Up 2 seconds   <-- NEW container, auto-restarted!
+
+# 4. Confirm the service is healthy again
+curl http://localhost/health
+# Output: {"status":"ok"}
+```
+
+**Evidence from `docker-compose.yml`**:
+```yaml
+services:
+  web_1:
+    build: .
+    restart: always   # <-- Docker auto-restarts on ANY exit
+  web_2:
+    build: .
+    restart: always
+  nginx:
+    restart: always
+  redis:
+    restart: always
+  prometheus:
+    restart: always
+  grafana:
+    restart: always
+  alertmanager:
+    restart: always
+  discord-relay:
+    restart: always
 ```
 
 ## 2. Invalid or Garbage Input Delivery
