@@ -35,7 +35,7 @@ def redirect_to_url(short_code):
         return jsonify({"error": "URL not found"}), 404
         
     if not url.is_active:
-        return jsonify({"error": "URL is inactive"}), 400
+        return jsonify({"error": "URL is inactive"}), 410
         
     max_event_id = Event.select(fn.MAX(Event.id)).scalar() or 0
     new_event_id = max_event_id + 1
