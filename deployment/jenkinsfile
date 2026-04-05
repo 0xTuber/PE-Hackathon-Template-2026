@@ -166,8 +166,8 @@ pipeline {
         stage('Health Check Production') {
             steps {
                 sh '''
-                    sleep 5
-                    curl -f http://localhost/health || exit 1
+                    sleep 15
+                    curl -f http://localhost/health || (sleep 10 && curl -f http://localhost/health) || exit 1
                 '''
             }
         }
