@@ -4,10 +4,10 @@ import psutil
 import json
 import os
 import uuid
+import tempfile
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, g, has_request_context
-from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from prometheus_client import Gauge
 
 from app.database import init_db
@@ -57,13 +57,24 @@ def create_app(test_config=None):
     register_routes(app)
 
     # --- Prometheus Instrumentation ---
-    # path='/prom-metrics' avoids conflict with existing JSON /metrics endpoint
-    prom = GunicornPrometheusMetrics(app, path='/prom-metrics')
+    # GunicornPrometheusMetrics requires PROMETHEUS_MULTIPROC_DIR (set in Docker/Gunicorn).
+    # Fall back to standard PrometheusMetrics when running via flask run / python run.py.
+    try:
+        from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
+        if not os.environ.get('PROMETHEUS_MULTIPROC_DIR') and not os.environ.get('prometheus_multiproc_dir'):
+            # Auto-create a temp dir so it works outside Gunicorn too
+            tmpdir = os.path.join(tempfile.gettempdir(), 'prometheus_multiproc')
+            os.makedirs(tmpdir, exist_ok=True)
+            os.environ['PROMETHEUS_MULTIPROC_DIR'] = tmpdir
+        prom = GunicornPrometheusMetrics(app, path='/prom-metrics')
+    except Exception:
+        from prometheus_flask_exporter import PrometheusMetrics
+        prom = PrometheusMetrics(app, path='/prom-metrics')
 
     # Custom saturation gauges
-    cpu_gauge = Gauge('app_cpu_usage_percent', 'Current CPU usage', ['replica'], multiprocess_mode='max')
-    ram_gauge = Gauge('app_ram_usage_percent', 'Current RAM usage', ['replica'], multiprocess_mode='max')
-    ram_bytes_gauge = Gauge('app_ram_used_bytes', 'RAM used in bytes', ['replica'], multiprocess_mode='max')
+    cpu_gauge = Gauge('app_cpu_usage_percent', 'Current CPU usage', ['replica'])
+    ram_gauge = Gauge('app_ram_usage_percent', 'Current RAM usage', ['replica'])
+    ram_bytes_gauge = Gauge('app_ram_used_bytes', 'RAM used in bytes', ['replica'])
 
     replica_id = os.environ.get("HOSTNAME", "standalone")
 
