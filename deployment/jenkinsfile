@@ -51,6 +51,7 @@ pipeline {
                     export ALERTMANAGER_PORT=19093
                     export COMPOSE_PROJECT_NAME=hackathon-staging
                     docker compose down 2>/dev/null || true
+                    docker builder prune -af 2>/dev/null || true
                     docker compose up -d --build
                     sleep 8
                     docker compose logs web_1 || true
