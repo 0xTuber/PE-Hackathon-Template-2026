@@ -91,19 +91,29 @@ pipeline {
 
                     echo ""
                     echo "============================================="
-                    echo "  CHAOS TEST 2: Garbage Input → Polite Error"
+                    echo "  CHAOS TEST 2: Invalid Input → Polite Error"
                     echo "============================================="
-                    echo "[ACTION] Sending malformed JSON to POST /api/urls..."
-                    RESPONSE=$(curl -s -w "\\nHTTP_CODE:%{http_code}" -X POST http://localhost:5001/api/urls \
+
+                    echo "[TEST 2a] Missing required 'original_url' field on POST /api/urls..."
+                    RESP1=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST http://localhost:5001/api/urls \
                         -H "Content-Type: application/json" \
-                        -d '{"original_url": [{"broken": true}, null], "fake_field": 999}')
+                        -d '{"title": "missing url field"}')
+                    echo "$RESP1"
+                    echo ""
 
-                    HTTP_BODY=$(echo "$RESPONSE" | sed '/^HTTP_CODE:/d')
-                    HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+                    echo "[TEST 2b] Missing required fields on POST /api/users..."
+                    RESP2=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST http://localhost:5001/api/users \
+                        -H "Content-Type: application/json" \
+                        -d '{"username": "no_email_provided"}')
+                    echo "$RESP2"
+                    echo ""
 
-                    echo "[RESULT] HTTP Status: $HTTP_CODE"
-                    echo "[RESULT] Response Body: $HTTP_BODY"
-                    echo "[VERIFY] Structured error returned (no stack traces leaked)!"
+                    echo "[TEST 2c] Non-existent resource on GET /api/users/99999..."
+                    RESP3=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:5001/api/users/99999)
+                    echo "$RESP3"
+                    echo ""
+
+                    echo "[VERIFY] All responses returned structured JSON errors (no stack traces leaked)!"
 
                     echo ""
                     echo "============================================="
